@@ -7,7 +7,7 @@ CREDENTIALS_FILE = 'LSComponents.json'
 spreadsheetId = '1QRRHkeS64Ln-yZgEbBaVtxYFi3rTLnOIr4pgkEX1iPE'
 doubled = 'underline'
 half = 'italic'
-threat_begin = 2
+threat_begin = 3
 threat_bonuses = 7
 last = 'z'
 
@@ -31,14 +31,44 @@ def main():
     count = sum(projects.values())
     threat_number = answer['sheets'][0]['properties']['gridProperties']['rowCount'] - threat_begin - threat_bonuses
     threats = {}
-    for i in range(3, threat_number+3):
-        answer = service.spreadsheets().get(spreadsheetId=spreadsheetId, includeGridData=True, ranges='d%i:%i%i' % (i, last, i).execute()
+    for i in range(threat_begin, threat_number+threat_begin):
+        answer = service.spreadsheets().get(spreadsheetId=spreadsheetId, includeGridData=True, ranges='d%i:%s%i' % (i, last, i)).execute()
         threats_data = answer['sheets'][0]['data'][0]['rowData'][0]['values']
-        threat = threats_data[0]['effectiveValue']['stringValue']
-        threats[threat] =
-
-
-    print(count)
+        try:
+            threat = threats_data[0]['effectiveValue']['stringValue']
+            threats[threat] = []
+            for j in range(5, len(threats_data)):
+                try:
+                    color = threats_data[j]['userEnteredFormat']['backgroundColor']
+                    risk = 0
+                    if color == {'red': 1, 'green': 1}:
+                        risk = 0.5
+                    if color == {'red': 1, 'green': 0.6} or color == {'red': 1}:
+                        risk = 1
+                    threats[threat].append(risk)
+                except KeyError:
+                    pass
+        except KeyError:
+            pass
+    risks = {}
+    for (i, (project, weight)) in enumerate(projects.items()):
+        risks[project] = {}
+        risks[project]['weight'] = weight
+        for threat in threats.keys():
+            temp = threats[threat]
+            risks[project][threat] = threats[threat][i]
+    print(risks)
+    rownumber = threat_begin
+    for threat in threats.keys():
+        total = 0
+        for project in risks.keys():
+            total += (risks[project]['weight'])*(risks[project][threat])
+        percent = int(100*total/count)
+        request_body = {"valueInputOption": "RAW",
+                        "data": [{"range": "f%i:f%i" % (rownumber, rownumber), "values": [[str(percent)+"%"]]}]}
+        request = service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheetId, body=request_body)
+        _ = request.execute()
+        rownumber += 1
 
 
 
