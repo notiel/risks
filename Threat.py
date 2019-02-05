@@ -1,10 +1,12 @@
 import httplib2
-import apiclient.discovery
+import googleapiclient.discovery
 from oauth2client.service_account import ServiceAccountCredentials
 
 
 CREDENTIALS_FILE = 'LSComponents.json'
-spreadsheetId = '1QRRHkeS64Ln-yZgEbBaVtxYFi3rTLnOIr4pgkEX1iPE'
+#spreadsheetId = '1QRRHkeS64Ln-yZgEbBaVtxYFi3rTLnOIr4pgkEX1iPE'
+
+spreadsheetId = '1_BwKWRBcHHOkzrag0zApUzgE-Bm-PEyw7dZnf84JcGs'
 doubled = 'underline'
 half = 'italic'
 threat_begin = 3
@@ -15,7 +17,7 @@ def main():
     credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, ['https://www.googleapis.com/auth/spreadsheets',
                                                                                       'https://www.googleapis.com/auth/drive'])
     httpAuth = credentials.authorize(httplib2.Http())
-    service = apiclient.discovery.build('sheets', 'v4', http=httpAuth)
+    service = googleapiclient.discovery.build('sheets', 'v4', http=httpAuth)
 
     answer = service.spreadsheets().get(spreadsheetId=spreadsheetId, includeGridData=True, ranges='i1:%s1' % last).execute()
     headers = answer['sheets'][0]['data'][0]['rowData'][0]['values']
@@ -32,22 +34,23 @@ def main():
     threat_number = answer['sheets'][0]['properties']['gridProperties']['rowCount'] - threat_begin - threat_bonuses
     threats = {}
     for i in range(threat_begin, threat_number+threat_begin):
+        print(i)
         answer = service.spreadsheets().get(spreadsheetId=spreadsheetId, includeGridData=True, ranges='d%i:%s%i' % (i, last, i)).execute()
         threats_data = answer['sheets'][0]['data'][0]['rowData'][0]['values']
         try:
             threat = threats_data[0]['effectiveValue']['stringValue']
             threats[threat] = []
             for j in range(5, len(threats_data)):
+                risk = 0
                 try:
                     color = threats_data[j]['userEnteredFormat']['backgroundColor']
-                    risk = 0
                     if color == {'red': 1, 'green': 1}:
                         risk = 0.5
                     if color == {'red': 1, 'green': 0.6} or color == {'red': 1}:
                         risk = 1
-                    threats[threat].append(risk)
                 except KeyError:
                     pass
+                threats[threat].append(risk)
         except KeyError:
             pass
     risks = {}
@@ -60,6 +63,8 @@ def main():
     print(risks)
     rownumber = threat_begin
     for threat in threats.keys():
+        print(threat)
+        print(threats[threat])
         total = 0
         for project in risks.keys():
             total += (risks[project]['weight'])*(risks[project][threat])
